@@ -1,66 +1,129 @@
 import './index.css';
 
-import { navigateTo } from '@devvit/web/client';
-import { context, requestExpandedMode } from '@devvit/web/client';
-import { StrictMode } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { requestExpandedMode } from '@devvit/web/client';
+import type { SplashResponse } from '../shared/api.ts';
+import { getTodayDailyChallenge } from '../shared/engine/dailyCatalog.ts';
+import { SNACK_UNIVERSE } from '../shared/engine/snacks.ts';
+import { MonsterIllustration } from './components/MonsterIllustration.tsx';
+import { SnackIllustration } from './components/SnackIllustration.tsx';
+import { trackAppReady } from './utils/telemetry.ts';
 
-export const Splash = () => {
+const previewSnacks = [SNACK_UNIVERSE[0], SNACK_UNIVERSE[13], SNACK_UNIVERSE[26]];
+
+export function Splash() {
+  const fallbackDaily = getTodayDailyChallenge();
+  const [data, setData] = useState<SplashResponse>({
+    postMode: 'daily',
+    challengeId: fallbackDaily.id,
+    monsterName: fallbackDaily.name,
+    personality: fallbackDaily.personality,
+    appearance: fallbackDaily.appearance,
+    dayNumber: fallbackDaily.dayNumber,
+    dayKey: fallbackDaily.dayKey,
+    difficulty: fallbackDaily.fairness.difficulty,
+    fairnessScore: fallbackDaily.fairness.score,
+    attempts: 0,
+    solves: 0,
+    alreadySolved: false,
+    username: 'Explorer',
+  });
+
+  useEffect(() => {
+    trackAppReady();
+    let active = true;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/splash');
+        if (!res.ok) return;
+        const json: SplashResponse = await res.json();
+        if (active && json.monsterName) {
+          setData(json);
+        }
+      } catch {
+        // Keep deterministic daily preview if offline/local
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <div className="flex relative flex-col justify-center items-center min-h-screen gap-4 bg-white dark:bg-gray-900">
-      <img
-        className="object-contain w-1/2 max-w-[250px] mx-auto"
-        src="/snoo.png"
-        alt="Snoo"
-      />
-      <div className="flex flex-col items-center gap-2">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Hey {context.username ?? 'user'} 👋
+    <main className="min-h-[100dvh] flex flex-col items-center justify-center p-4">
+      <div className="paper-card max-w-md w-full p-5 sm:p-6 flex flex-col items-center text-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          <span className="rounded-full border border-[#dfd0b8] bg-[#faf4e8] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-[#68584a]">
+            {data.postMode === 'challenge'
+              ? `Community Challenge · u/${data.creatorUsername ?? 'Redditor'}`
+              : `Daily Puzzle #${data.dayNumber ?? 1}`}
+          </span>
+          <span className="rounded-full border border-[#3f8a52] bg-[#e6f4e9] px-2.5 py-0.5 text-[11px] font-extrabold text-[#1f592d]">
+            ✓ Fairness {data.fairnessScore}/100
+          </span>
+        </div>
+
+        <h1
+          className="finicky-title font-bold text-[#2b2118] leading-tight"
+          style={{ fontSize: 'clamp(1.65rem, 1.2rem + 2vw, 2.3rem)' }}
+        >
+          FINICKY
         </h1>
-        <p className="text-base text-center text-gray-600 dark:text-gray-300">
-          Edit{' '}
-          <span className="bg-[#e5ebee] dark:bg-gray-700 px-1 py-0.5 rounded">
-            src/client/splash.tsx
-          </span>{' '}
-          to get started.
+        <p className="text-xs sm:text-sm font-bold text-[#794e8a] -mt-1.5">
+          Every monster has a secret. Can you figure out what it likes?
+        </p>
+
+        <div className="relative flex items-center justify-center gap-3 my-1">
+          {previewSnacks[0] && (
+            <div className="-rotate-12 hidden sm:block">
+              <SnackIllustration snack={previewSnacks[0]} size={42} decorative />
+            </div>
+          )}
+          <MonsterIllustration
+            appearance={data.appearance}
+            mood={data.alreadySolved ? 'celebrate' : 'curious'}
+            size={148}
+            name={data.monsterName}
+          />
+          {previewSnacks[1] && (
+            <div className="rotate-12 hidden sm:block">
+              <SnackIllustration snack={previewSnacks[1]} size={42} decorative />
+            </div>
+          )}
+        </div>
+
+        <div>
+          <p className="finicky-title text-xl font-bold text-[#2b2118]">Meet {data.monsterName}</p>
+          <p className="text-xs sm:text-sm text-[#68584a] max-w-xs mx-auto mt-0.5">
+            {data.personality}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => requestExpandedMode(e.nativeEvent, 'game')}
+          className="tactile-btn bg-[#df5a49] text-white px-7 py-3 text-base w-full sm:w-auto cursor-pointer mt-1"
+        >
+          {data.alreadySolved ? 'Open Menagerie & Results →' : 'Investigate Monster →'}
+        </button>
+
+        <p className="text-[11px] font-bold text-[#68584a]">
+          {data.attempts > 0
+            ? `${data.solves} of ${data.attempts} Redditors solved this monster`
+            : 'Feed snacks · Deduce the hidden rule · Create your own!'}
         </p>
       </div>
-      <div className="flex items-center justify-center mt-5">
-        <button
-          className="flex items-center justify-center bg-[#d93900] dark:bg-orange-600 text-white w-auto h-10 rounded-full cursor-pointer transition-colors px-4 hover:bg-[#c23300] dark:hover:bg-orange-700"
-          onClick={(e) => requestExpandedMode(e.nativeEvent, 'game')}
-        >
-          Tap to Start
-        </button>
-      </div>
-      <footer className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3 text-[0.8em] text-gray-600 dark:text-gray-400">
-        <button
-          className="cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors"
-          onClick={() => navigateTo('https://developers.reddit.com/docs')}
-        >
-          Docs
-        </button>
-        <span className="text-gray-300 dark:text-gray-600">|</span>
-        <button
-          className="cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors"
-          onClick={() => navigateTo('https://www.reddit.com/r/Devvit')}
-        >
-          r/Devvit
-        </button>
-        <span className="text-gray-300 dark:text-gray-600">|</span>
-        <button
-          className="cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors"
-          onClick={() => navigateTo('https://discord.com/invite/R7yu2wh9Qz')}
-        >
-          Discord
-        </button>
-      </footer>
-    </div>
+    </main>
   );
-};
+}
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Splash />
-  </StrictMode>
-);
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  createRoot(rootEl).render(
+    <StrictMode>
+      <Splash />
+    </StrictMode>
+  );
+}

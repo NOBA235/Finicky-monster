@@ -1,12 +1,21 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
   "name": "fickey-monster",
+  "permissions": {
+    "redis": true,
+    "journeys": true,
+    "reddit": {
+      "enable": true,
+      "scope": "user",
+      "asUser": ["SUBMIT_POST", "SUBMIT_COMMENT"]
+    }
+  },
   "post": {
     "dir": "dist/client",
     "entrypoints": {
       "default": {
-        "inline": true,
-        "entry": "splash.html"
+        "entry": "splash.html",
+        "height": "tall"
       },
       "game": {
         "entry": "game.html"
@@ -20,23 +29,20 @@
   "menu": {
     "items": [
       {
-        "label": "Create a new post",
-        "description": "fickey-monster",
+        "label": "Post Today's Daily FINICKY",
+        "description": "Create today's official FINICKY daily monster puzzle post",
         "location": "subreddit",
         "forUserType": "moderator",
-        "endpoint": "/internal/menu/post-create"
+        "endpoint": "/internal/menu/post-daily"
       },
       {
-        "label": "Example form",
-        "description": "Show a simple form",
+        "label": "Post FINICKY Hub",
+        "description": "Create a living FINICKY post that always opens today's monster",
         "location": "subreddit",
         "forUserType": "moderator",
-        "endpoint": "/internal/menu/example-form"
+        "endpoint": "/internal/menu/post-hub"
       }
     ]
-  },
-  "forms": {
-    "exampleForm": "/internal/form/example-submit"
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install"

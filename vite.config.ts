@@ -4,5 +4,20 @@ import tailwind from '@tailwindcss/vite';
 import { devvit } from '@devvit/start/vite';
 
 export default defineConfig({
-  plugins: [react(), tailwind(), devvit()],
+  plugins: [
+    react(),
+    tailwind(),
+    devvit({
+      client: {
+        build: {
+          sourcemap: false,
+        },
+      },
+      server: {
+        build: {
+          sourcemap: false,
+        },
+      },
+    }),
+  ],
 });
