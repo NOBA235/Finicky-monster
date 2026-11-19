@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type {
   DailyHistoryEntry,
   MenagerieResident,
   PlayerProfile,
 } from '../../shared/api.ts';
+import type { MonsterMood } from '../../shared/engine/monsters.ts';
+import { computeCollectionMilestones } from '../../shared/engine/recognition.ts';
+import { SNACK_UNIVERSE, getSnackById } from '../../shared/engine/snacks.ts';
+import { soundEngine } from '../utils/sound.ts';
 import { ModalDialog } from './ModalDialog.tsx';
 import { MonsterIllustration } from './MonsterIllustration.tsx';
+import { SnackIllustration } from './SnackIllustration.tsx';
 
 type MenagerieViewProps = {
   readonly profile: PlayerProfile;
@@ -13,6 +18,7 @@ type MenagerieViewProps = {
   readonly dailyHistory: readonly DailyHistoryEntry[];
   readonly onPlayDaily: (dayKey: string) => void;
   readonly onGoDiscover: () => void;
+  readonly onOpenArchive: () => void;
 };
 
 function getDetectiveTitle(totalSolved: number): string {
@@ -29,8 +35,43 @@ export function MenagerieView({
   dailyHistory,
   onPlayDaily,
   onGoDiscover,
+  onOpenArchive,
 }: MenagerieViewProps) {
   const [selectedResident, setSelectedResident] = useState<MenagerieResident | null>(null);
+  const [residentMood, setResidentMood] = useState<MonsterMood>('idle');
+  const [treatCount, setTreatCount] = useState(0);
+
+  const milestones = useMemo(
+    () => computeCollectionMilestones(profile, menagerie),
+    [profile, menagerie]
+  );
+
+  const unlockedCount = milestones.filter((m) => m.unlocked).length;
+
+  const selectedFavoriteSnack = useMemo(() => {
+    if (!selectedResident) return null;
+    if (selectedResident.favoriteSnackId) {
+      const found = getSnackById(selectedResident.favoriteSnackId);
+      if (found) return found;
+    }
+    return SNACK_UNIVERSE[0] ?? null;
+  }, [selectedResident]);
+
+  const handleOpenResident = (resident: MenagerieResident) => {
+    soundEngine.playTap();
+    setSelectedResident(resident);
+    setResidentMood('idle');
+    setTreatCount(0);
+  };
+
+  const handleOfferTreat = () => {
+    soundEngine.playAccept();
+    setResidentMood('accept');
+    setTreatCount((c) => c + 1);
+    window.setTimeout(() => {
+      setResidentMood('celebrate');
+    }, 550);
+  };
 
   return (
     <div className="flex flex-col gap-4 pb-8">
@@ -77,11 +118,20 @@ export function MenagerieView({
 
       {/* Illustrated Sanctuary Meadow */}
       <section className="paper-card p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="finicky-title text-lg font-bold text-[#2b2118]">
             Sanctuary Residents ({menagerie.length})
           </h3>
-          <span className="text-xs font-semibold text-[#68584a]">Tap any monster to inspect</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#68584a]">Tap any resident to visit</span>
+            <button
+              type="button"
+              onClick={onOpenArchive}
+              className="rounded-xl border border-[#dfd0b8] bg-[#faf4e8] px-2.5 py-1 text-xs font-extrabold text-[#2b2118] hover:border-[#2b2118] cursor-pointer"
+            >
+              📅 Past Dailies
+            </button>
+          </div>
         </div>
 
         {menagerie.length === 0 ? (
@@ -93,13 +143,22 @@ export function MenagerieView({
               Solve today’s Daily Monster or a Community Challenge by passing its unseen Final Exam,
               and it will move right into your Menagerie!
             </p>
-            <button
-              type="button"
-              onClick={onGoDiscover}
-              className="tactile-btn bg-[#3f8a52] text-white px-5 py-2 text-sm cursor-pointer"
-            >
-              Meet Today’s Monster →
-            </button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={onGoDiscover}
+                className="tactile-btn bg-[#3f8a52] text-white px-5 py-2 text-sm cursor-pointer"
+              >
+                Meet Today’s Monster →
+              </button>
+              <button
+                type="button"
+                onClick={onOpenArchive}
+                className="rounded-xl border-2 border-[#dfd0b8] bg-[#fffdf8] px-4 py-2 text-sm font-bold text-[#2b2118] hover:border-[#2b2118] cursor-pointer"
+              >
+                Browse Daily Archive
+              </button>
+            </div>
           </div>
         ) : (
           <div className="rounded-2xl border-2 border-[#b7d3b0] bg-[#edf5ea] p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -107,7 +166,7 @@ export function MenagerieView({
               <button
                 key={resident.challengeId}
                 type="button"
-                onClick={() => setSelectedResident(resident)}
+                onClick={() => handleOpenResident(resident)}
                 className="rounded-2xl border-2 border-[#c8dac2] bg-[#fffdf8] p-3 flex flex-col items-center text-center gap-1.5 hover:border-[#2b2118] hover:-translate-y-0.5 hover:shadow-[0_3px_0_#2b2118] transition-all cursor-pointer"
               >
                 <MonsterIllustration
@@ -136,12 +195,62 @@ export function MenagerieView({
         )}
       </section>
 
+      {/* Collection Milestones Wax Seals */}
+      <section className="paper-card p-4 sm:p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="finicky-title text-lg font-bold text-[#2b2118]">
+            Sanctuary Milestones
+          </h3>
+          <span className="text-xs font-extrabold text-[#794e8a]">
+            {unlockedCount} / {milestones.length} unlocked
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {milestones.map((m) => (
+            <div
+              key={m.id}
+              className={`rounded-2xl border-2 p-3 flex flex-col gap-1 ${
+                m.unlocked
+                  ? 'border-[#e7b236] bg-[#fdf4db]'
+                  : 'border-[#dfd0b8] bg-[#faf4e8] opacity-70'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-lg" aria-hidden="true">
+                  {m.icon}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                    m.unlocked
+                      ? 'bg-[#3f8a52] text-white'
+                      : 'bg-[#e3d5bf] text-[#68584a]'
+                  }`}
+                >
+                  {m.unlocked ? 'Earned' : m.progressText}
+                </span>
+              </div>
+              <p className="text-xs font-extrabold text-[#2b2118]">{m.title}</p>
+              <p className="text-[11px] text-[#68584a] leading-snug">{m.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Daily Challenge History */}
       {dailyHistory.length > 0 && (
         <section className="paper-card p-4 sm:p-5">
-          <h3 className="finicky-title text-lg font-bold text-[#2b2118] mb-2.5">
-            Daily Investigation Log
-          </h3>
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <h3 className="finicky-title text-lg font-bold text-[#2b2118]">
+              Daily Investigation Log
+            </h3>
+            <button
+              type="button"
+              onClick={onOpenArchive}
+              className="text-xs font-extrabold text-[#794e8a] underline cursor-pointer"
+            >
+              Open Full Archive
+            </button>
+          </div>
           <ul className="flex flex-col gap-2">
             {dailyHistory.slice(0, 10).map((entry) => (
               <li
@@ -162,7 +271,9 @@ export function MenagerieView({
                         : 'bg-[#fdebe8] text-[#9e2b1e]'
                     }`}
                   >
-                    {entry.solved ? `Solved · ${entry.experimentsUsed} tests` : `Exam ${entry.examCorrectCount}/6`}
+                    {entry.solved
+                      ? `Solved · ${entry.experimentsUsed} tests`
+                      : `Exam ${entry.examCorrectCount}/6`}
                   </span>
                   <button
                     type="button"
@@ -178,7 +289,7 @@ export function MenagerieView({
         </section>
       )}
 
-      {/* Resident Inspector Native <dialog> */}
+      {/* Resident Inspector Native <dialog> with Interactive Favorite Treat */}
       <ModalDialog
         open={selectedResident !== null}
         onClose={() => setSelectedResident(null)}
@@ -188,12 +299,27 @@ export function MenagerieView({
           <div className="flex flex-col items-center text-center gap-3">
             <MonsterIllustration
               appearance={selectedResident.appearance}
-              mood="celebrate"
+              mood={residentMood}
               size={148}
               name={selectedResident.name}
             />
             <p className="text-sm font-semibold text-[#2b2118]">{selectedResident.personality}</p>
             <p className="text-xs italic text-[#68584a]">“{selectedResident.habitatNote}”</p>
+
+            {selectedFavoriteSnack && (
+              <button
+                type="button"
+                onClick={handleOfferTreat}
+                className="tactile-btn bg-[#e6f4e9] text-[#1f592d] px-4 py-2 text-xs inline-flex items-center gap-2 cursor-pointer"
+              >
+                <SnackIllustration snack={selectedFavoriteSnack} size={26} decorative />
+                <span>
+                  {treatCount === 0
+                    ? `Offer Favorite Treat (${selectedFavoriteSnack.label})`
+                    : `Happy Munch! ×${treatCount} — Offer Another`}
+                </span>
+              </button>
+            )}
 
             <div className="w-full paper-card-inset p-3 text-left">
               <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#68584a]">

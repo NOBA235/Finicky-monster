@@ -70,8 +70,9 @@ challengeRoutes.post('/validate', async (c) => {
 challengeRoutes.get('/', async (c) => {
   try {
     const actor = await getActor();
+    const sortParam = c.req.query('sort') === 'featured' ? 'featured' : 'recent';
     const [challenges, myCreated, menagerie] = await Promise.all([
-      listCommunityChallenges(redis, 24),
+      listCommunityChallenges(redis, 24, sortParam),
       listCreatorAnalytics(redis, actor.userId),
       getMenagerie(redis, actor.userId),
     ]);

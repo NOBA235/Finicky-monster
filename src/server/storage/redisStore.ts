@@ -14,7 +14,7 @@ import {
 } from '../../shared/engine/dailyCatalog.ts';
 import type { FairnessReport } from '../../shared/engine/fairness.ts';
 import type { MonsterAppearance } from '../../shared/engine/monsters.ts';
-import { ruleToNaturalLanguage, type RuleNode } from '../../shared/engine/rules.ts';
+import { getAcceptedSnacks, ruleToNaturalLanguage, type RuleNode } from '../../shared/engine/rules.ts';
 import {
   createInitialSession,
   type ChallengeDefinition,
@@ -381,15 +381,17 @@ export async function resolveChallengeDefinition(
 
 export async function listCommunityChallenges(
   store: KeyValueStore,
-  limit = 24
+  limit = 24,
+  sort: 'recent' | 'featured' = 'recent'
 ): Promise<readonly PublicChallenge[]> {
-  const recent = await store.zRange(CHALLENGES_RECENT_KEY, 0, Math.max(0, limit - 1), {
+  const indexKey = sort === 'featured' ? CHALLENGES_FEATURED_KEY : CHALLENGES_RECENT_KEY;
+  const entries = await store.zRange(indexKey, 0, Math.max(0, limit - 1), {
     by: 'rank',
     reverse: true,
   });
 
   const results: PublicChallenge[] = [];
-  for (const item of recent) {
+  for (const item of entries) {
     const stored = await getCommunityChallenge(store, item.member);
     if (!stored) continue;
     const stats = await getChallengeStats(store, stored.id);
@@ -552,6 +554,7 @@ export async function recordCompletion(
   let newlyAddedToMenagerie = false;
 
   if (solved) {
+    const favoriteSnack = getAcceptedSnacks(challenge.rule)[0];
     const resident: MenagerieResident = {
       challengeId: challenge.id,
       kind: challenge.kind,
@@ -564,6 +567,7 @@ export async function recordCompletion(
         : {}),
       appearance: challenge.appearance,
       ruleText: ruleToNaturalLanguage(challenge.rule),
+      ...(favoriteSnack ? { favoriteSnackId: favoriteSnack.id } : {}),
       discoveredAt: nowMs,
       experimentsUsed: session.experiments.length,
       exactDeduction,

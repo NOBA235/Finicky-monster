@@ -94,10 +94,17 @@ export function DiscoverView({
 
   // Phase 3: Unseen Final Examination predictions
   const [examPredictions, setExamPredictions] = useState<Record<string, boolean>>({});
+  const [showExamEvidence, setShowExamEvidence] = useState(false);
 
   // Share state
   const [postingComment, setPostingComment] = useState(false);
   const [commentPosted, setCommentPosted] = useState(false);
+
+  const lastExperiment =
+    session.experiments.length > 0
+      ? session.experiments[session.experiments.length - 1]
+      : undefined;
+  const lastTestedSnack = lastExperiment ? getSnackById(lastExperiment.snackId) : undefined;
 
   const budget = challenge.fairnessBadge.experimentBudget;
   const remainingExperiments = Math.max(0, budget - session.experiments.length);
@@ -456,14 +463,32 @@ export function DiscoverView({
           )}
         </div>
 
-        {/* Character + Live Speech Bubble */}
+        {/* Character + Tasting Plate + Live Speech Bubble */}
         <div className="flex flex-col sm:flex-row items-center gap-4 rounded-2xl bg-[#faf4e8] border border-[#e3d5bf] px-4 py-3">
-          <MonsterIllustration
-            appearance={challenge.appearance}
-            mood={mood}
-            size={146}
-            name={challenge.name}
-          />
+          <div className="flex items-end gap-2 shrink-0">
+            <MonsterIllustration
+              appearance={challenge.appearance}
+              mood={mood}
+              size={146}
+              name={challenge.name}
+            />
+            {lastTestedSnack && lastExperiment && session.phase !== 'revealed' && (
+              <div className="flex flex-col items-center gap-1 pb-2 animate-float-pop">
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                    lastExperiment.accepted
+                      ? 'border-[#3f8a52] bg-[#e6f4e9] text-[#1f592d]'
+                      : 'border-[#df5a49] bg-[#fdebe8] text-[#9e2b1e]'
+                  }`}
+                >
+                  {lastExperiment.accepted ? 'Yum! ✓' : 'Blegh! ✕'}
+                </span>
+                <div className="rounded-full border-2 border-[#dfd0b8] bg-[#fffdf8] p-1.5 shadow-[0_3px_0_#ddd0ba]">
+                  <SnackIllustration snack={lastTestedSnack} size={36} decorative />
+                </div>
+              </div>
+            )}
+          </div>
           <div className="flex-1 w-full">
             <div
               role="status"
@@ -700,15 +725,37 @@ export function DiscoverView({
 
           {compiledHypothesis && (
             <div
-              className={`rounded-xl border-2 px-3.5 py-2.5 text-xs font-bold ${
+              className={`rounded-xl border-2 px-3.5 py-2.5 text-xs font-bold flex flex-col gap-2 ${
                 liveHypothesisContradictions.length === 0
                   ? 'border-[#3f8a52] bg-[#e6f4e9] text-[#1f592d]'
                   : 'border-[#e7b236] bg-[#fdf4db] text-[#7c5308]'
               }`}
             >
-              {liveHypothesisContradictions.length === 0
-                ? `✓ Your theory matches all ${session.experiments.length} snack experiment(s) you ran!`
-                : `Heads up: this theory disagrees with ${liveHypothesisContradictions.length} snack(s) you already tested. Double-check your evidence or adjust a chip!`}
+              <p>
+                {liveHypothesisContradictions.length === 0
+                  ? `✓ Your theory matches all ${session.experiments.length} snack experiment(s) you ran!`
+                  : `Heads up: this theory disagrees with ${liveHypothesisContradictions.length} tested snack(s):`}
+              </p>
+              {liveHypothesisContradictions.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5">
+                  {liveHypothesisContradictions.map((id) => {
+                    const snack = getSnackById(id);
+                    const actual = testedMap.get(id);
+                    if (!snack || actual === undefined) return null;
+                    return (
+                      <li
+                        key={id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#e7cb7a] bg-[#fffdf8] px-2 py-0.5 text-[11px] font-bold text-[#2b2118]"
+                      >
+                        <SnackIllustration snack={snack} size={18} decorative />
+                        <span>
+                          {snack.label} ({actual ? 'was Liked' : 'was Refused'})
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
 
@@ -766,6 +813,66 @@ export function DiscoverView({
                 Note: Your locked theory disagreed with {contradictionWarning.length} earlier test —
                 trust your sharpest deduction on each card below!
               </p>
+            )}
+
+            {/* Exam progress bar & quick evidence reference toggle */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex-1 min-w-[160px] flex items-center gap-2">
+                <div
+                  className="flex-1 h-2.5 rounded-full bg-[#f2e8d5] border border-[#dfd0b8] overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={Object.keys(examPredictions).length}
+                  aria-valuemin={0}
+                  aria-valuemax={examSnacks.length}
+                  aria-label="Final examination completion progress"
+                >
+                  <div
+                    className="h-full bg-[#3f8a52] transition-all"
+                    style={{
+                      width: `${Math.round((Object.keys(examPredictions).length / Math.max(1, examSnacks.length)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-extrabold text-[#2b2118] shrink-0">
+                  {Object.keys(examPredictions).length}/{examSnacks.length}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                aria-expanded={showExamEvidence}
+                onClick={() => setShowExamEvidence((v) => !v)}
+                className="rounded-xl border border-[#dfd0b8] bg-[#faf4e8] px-3 py-1 text-xs font-extrabold text-[#2b2118] hover:border-[#2b2118] cursor-pointer"
+              >
+                {showExamEvidence ? 'Hide Evidence Notes ▲' : 'Peek at My Evidence ▼'}
+              </button>
+            </div>
+
+            {showExamEvidence && (
+              <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="rounded-xl border border-[#9fd1ab] bg-[#e6f4e9] p-2.5">
+                  <p className="font-extrabold text-[#1f592d] mb-1">Liked ({acceptedHistory.length})</p>
+                  <p className="text-[#2b2118] font-semibold">
+                    {acceptedHistory.length === 0
+                      ? 'None tested yet'
+                      : acceptedHistory
+                          .map((e) => getSnackById(e.snackId)?.label)
+                          .filter(Boolean)
+                          .join(', ')}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[#e9a89f] bg-[#fdebe8] p-2.5">
+                  <p className="font-extrabold text-[#9e2b1e] mb-1">Refused ({rejectedHistory.length})</p>
+                  <p className="text-[#2b2118] font-semibold">
+                    {rejectedHistory.length === 0
+                      ? 'None tested yet'
+                      : rejectedHistory
+                          .map((e) => getSnackById(e.snackId)?.label)
+                          .filter(Boolean)
+                          .join(', ')}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

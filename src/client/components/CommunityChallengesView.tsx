@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { navigateTo } from '@devvit/web/client';
 import type {
   CommunityChallengesResponse,
   CreatorChallengeAnalytics,
+  DifficultyTier,
   PublicChallenge,
 } from '../../shared/api.ts';
+import {
+  evaluateCreatorRecognition,
+  type CreatorBadgeTier,
+} from '../../shared/engine/recognition.ts';
 import { getSnackById } from '../../shared/engine/snacks.ts';
 import { MonsterIllustration } from './MonsterIllustration.tsx';
 import { SnackIllustration } from './SnackIllustration.tsx';
@@ -15,18 +20,27 @@ type CommunityChallengesViewProps = {
   readonly onGoCreate: () => void;
 };
 
+const RECOGNITION_BADGE_STYLES: Readonly<Record<CreatorBadgeTier, string>> = {
+  gold_architect: 'border-[#e7b236] bg-[#fdf4db] text-[#7c5308]',
+  clever_riddler: 'border-[#9ec6e4] bg-[#e4f1fa] text-[#1e4e76]',
+  verified_maker: 'border-[#9fd1ab] bg-[#e6f4e9] text-[#1f592d]',
+  brutal_stumper: 'border-[#e9a89f] bg-[#fdebe8] text-[#9e2b1e]',
+};
+
 export function CommunityChallengesView({
   subredditName,
   onPlayChallenge,
   onGoCreate,
 }: CommunityChallengesViewProps) {
   const [subTab, setSubTab] = useState<'explore' | 'mine'>('explore');
+  const [sortMode, setSortMode] = useState<'featured' | 'recent'>('featured');
+  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyTier | 'all'>('all');
+  const [onlyUnsolved, setOnlyUnsolved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<readonly PublicChallenge[]>([]);
   const [myCreated, setMyCreated] = useState<readonly CreatorChallengeAnalytics[]>([]);
   const [solvedIds, setSolvedIds] = useState<ReadonlySet<string>>(new Set());
-
   const [refreshTick, setRefreshTick] = useState(0);
 
   const triggerRefresh = useCallback(() => {
@@ -39,7 +53,7 @@ export function CommunityChallengesView({
     let active = true;
     const run = async () => {
       try {
-        const res = await fetch('/api/challenges');
+        const res = await fetch(`/api/challenges?sort=${sortMode}`);
         const data: CommunityChallengesResponse | { status: 'error'; message: string } =
           await res.json();
         if (!res.ok || 'status' in data) {
@@ -60,7 +74,19 @@ export function CommunityChallengesView({
     return () => {
       active = false;
     };
-  }, [refreshTick]);
+  }, [refreshTick, sortMode]);
+
+  const visibleChallenges = useMemo(() => {
+    return challenges.filter((ch) => {
+      if (difficultyFilter !== 'all' && ch.fairnessBadge.difficulty !== difficultyFilter) {
+        return false;
+      }
+      if (onlyUnsolved && solvedIds.has(ch.id)) {
+        return false;
+      }
+      return true;
+    });
+  }, [challenges, difficultyFilter, onlyUnsolved, solvedIds]);
 
   return (
     <div className="flex flex-col gap-4 pb-8">
@@ -126,6 +152,65 @@ export function CommunityChallengesView({
       {/* EXPLORE COMMUNITY CHALLENGES */}
       {!loading && subTab === 'explore' && (
         <>
+          {challenges.length > 0 && (
+            <div className="paper-card px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-extrabold uppercase text-[#68584a]">Sort:</span>
+                {(['featured', 'recent'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={sortMode === mode}
+                    onClick={() => {
+                      if (sortMode !== mode) {
+                        setLoading(true);
+                        setSortMode(mode);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-lg border font-extrabold cursor-pointer ${
+                      sortMode === mode
+                        ? 'border-[#2b2118] bg-[#2b2118] text-white'
+                        : 'border-[#dfd0b8] bg-[#faf4e8] text-[#2b2118]'
+                    }`}
+                  >
+                    {mode === 'featured' ? '★ Highest Fairness' : 'Newest'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label="Filter community challenges by difficulty"
+                  value={difficultyFilter}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === 'gentle' || v === 'clever' || v === 'tricky' || v === 'fiendish') {
+                      setDifficultyFilter(v);
+                    } else {
+                      setDifficultyFilter('all');
+                    }
+                  }}
+                  className="rounded-lg border border-[#dfd0b8] bg-[#faf4e8] px-2.5 py-1 font-bold text-[#2b2118]"
+                >
+                  <option value="all">All Difficulties</option>
+                  <option value="clever">Clever</option>
+                  <option value="tricky">Tricky</option>
+                  <option value="fiendish">Fiendish</option>
+                </select>
+
+                <label className="inline-flex items-center gap-1.5 font-bold text-[#2b2118] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyUnsolved}
+                    onChange={(e) => setOnlyUnsolved(e.target.checked)}
+                    className="accent-[#3f8a52]"
+                  />
+                  <span>Unsolved only</span>
+                </label>
+              </div>
+            </div>
+          )}
+
           {challenges.length === 0 ? (
             <div className="paper-card p-8 text-center flex flex-col items-center gap-3">
               <p className="finicky-title text-xl font-bold text-[#2b2118]">
@@ -143,10 +228,25 @@ export function CommunityChallengesView({
                 Create the First Monster →
               </button>
             </div>
+          ) : visibleChallenges.length === 0 ? (
+            <div className="paper-card p-6 text-center text-sm font-bold text-[#68584a]">
+              No monsters match those filters.{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setDifficultyFilter('all');
+                  setOnlyUnsolved(false);
+                }}
+                className="text-[#794e8a] underline cursor-pointer"
+              >
+                Clear filters
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {challenges.map((ch) => {
+              {visibleChallenges.map((ch) => {
                 const isSolved = solvedIds.has(ch.id);
+                const recognition = evaluateCreatorRecognition(ch.fairnessBadge.score, ch.stats);
                 return (
                   <article
                     key={ch.id}
@@ -161,8 +261,12 @@ export function CommunityChallengesView({
                       />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-full border border-[#3f8a52] bg-[#e6f4e9] px-2 py-0.5 text-[10px] font-extrabold text-[#1f592d]">
-                            ✓ Fair {ch.fairnessBadge.score}
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-extrabold ${
+                              RECOGNITION_BADGE_STYLES[recognition.tier]
+                            }`}
+                          >
+                            {recognition.icon} {recognition.label} · {ch.fairnessBadge.score}
                           </span>
                           <span className="rounded-full border border-[#dfd0b8] bg-[#faf4e8] px-2 py-0.5 text-[10px] font-extrabold capitalize text-[#68584a]">
                             {ch.fairnessBadge.difficulty}
@@ -222,7 +326,9 @@ export function CommunityChallengesView({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {myCreated.map((item) => (
+              {myCreated.map((item) => {
+                const recognition = evaluateCreatorRecognition(item.fairnessBadge.score, item);
+                return (
                 <article key={item.challengeId} className="paper-card p-4 sm:p-5 flex flex-col gap-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -233,15 +339,26 @@ export function CommunityChallengesView({
                         name={item.name}
                       />
                       <div>
+                        <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-extrabold ${
+                              RECOGNITION_BADGE_STYLES[recognition.tier]
+                            }`}
+                          >
+                            {recognition.icon} {recognition.label}
+                          </span>
+                          <span className="text-[11px] font-bold text-[#1f592d]">
+                            Fairness {item.fairnessBadge.score}/100
+                          </span>
+                        </div>
                         <h3 className="finicky-title text-xl font-bold text-[#2b2118]">
                           {item.name}
                         </h3>
                         <p className="text-xs font-extrabold text-[#794e8a]">
                           Secret Rule: {item.ruleText}
                         </p>
-                        <p className="text-[11px] font-bold text-[#1f592d]">
-                          ✓ Fairness Certified {item.fairnessBadge.score}/100 (
-                          {item.fairnessBadge.difficulty})
+                        <p className="text-[11px] font-semibold text-[#68584a] mt-0.5">
+                          {recognition.note}
                         </p>
                       </div>
                     </div>
@@ -346,7 +463,8 @@ export function CommunityChallengesView({
                     </div>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </>

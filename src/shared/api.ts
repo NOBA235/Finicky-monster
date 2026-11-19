@@ -74,10 +74,29 @@ export type MenagerieResident = {
   readonly creatorUsername?: string;
   readonly appearance: MonsterAppearance;
   readonly ruleText: string;
+  readonly favoriteSnackId?: SnackId;
   readonly discoveredAt: number;
   readonly experimentsUsed: number;
   readonly exactDeduction: boolean;
   readonly difficulty: DifficultyTier;
+};
+
+export type DailyArchiveItem = {
+  readonly id: string;
+  readonly dayKey: string;
+  readonly dayNumber: number;
+  readonly name: string;
+  readonly personality: string;
+  readonly appearance: MonsterAppearance;
+  readonly difficulty: DifficultyTier;
+  readonly fairnessScore: number;
+  readonly isToday: boolean;
+  readonly status: 'unplayed' | 'in_progress' | 'solved' | 'missed';
+};
+
+export type DailyArchiveResponse = {
+  readonly todayDayKey: string;
+  readonly items: readonly DailyArchiveItem[];
 };
 
 export type PlayerProfile = {

@@ -32,7 +32,12 @@ import {
   CURATED_DAILY_MONSTERS,
   getDailyChallengeForDayKey,
   getDayNumberForDayKey,
+  getRecentDailyArchiveKeys,
 } from '../shared/engine/dailyCatalog.ts';
+import {
+  computeCollectionMilestones,
+  evaluateCreatorRecognition,
+} from '../shared/engine/recognition.ts';
 import {
   applyExamSubmission,
   applyExperiment,
@@ -248,6 +253,103 @@ void describe('Curated Daily Monster Catalog', () => {
     assert.equal(dayA.slug, dayB.slug);
     assert.equal(getDayNumberForDayKey('2026-11-01'), 1);
     assert.equal(getDayNumberForDayKey('2026-11-19'), 19);
+
+    const archive = getRecentDailyArchiveKeys('2026-11-05', 14);
+    assert.equal(archive.length, 5);
+    assert.equal(archive[0], '2026-11-05');
+    assert.equal(archive[4], '2026-11-01');
+  });
+});
+
+void describe('Creator Recognition & Menagerie Milestones', () => {
+  void it('rewards fair solvable challenges and never awards gold to impossible puzzles', () => {
+    const gold = evaluateCreatorRecognition(90, {
+      attempts: 10,
+      solves: 6,
+      solveRatePct: 60,
+      avgExperiments: 5.5,
+      exactDeductions: 4,
+    });
+    assert.equal(gold.tier, 'gold_architect');
+
+    const brutal = evaluateCreatorRecognition(92, {
+      attempts: 10,
+      solves: 0,
+      solveRatePct: 0,
+      avgExperiments: 9,
+      exactDeductions: 0,
+    });
+    assert.equal(brutal.tier, 'brutal_stumper');
+  });
+
+  void it('computes collection milestones accurately from player profile and menagerie', () => {
+    const milestones = computeCollectionMilestones(
+      {
+        userId: 't2_u1',
+        username: 'sleuth',
+        streak: 3,
+        bestStreak: 3,
+        lastDailyKey: '2026-11-19',
+        totalSolved: 2,
+        dailySolved: 1,
+        communitySolved: 1,
+        createdCount: 1,
+        exactDeductions: 1,
+      },
+      [
+        {
+          challengeId: 'daily:2026-11-19',
+          kind: 'daily',
+          dayNumber: 19,
+          name: 'Juniper',
+          personality: 'Playful',
+          habitatNote: 'Canopy',
+          appearance: {
+            bodyShape: 'horned',
+            bodyColor: 'mint',
+            bellyPattern: 'patch',
+            eyeStyle: 'three-eyes',
+            mouthStyle: 'beak',
+            accessory: 'ear-tufts',
+          },
+          ruleText: 'Eats yellow circles, or red squares',
+          discoveredAt: 1000,
+          experimentsUsed: 6,
+          exactDeduction: true,
+          difficulty: 'fiendish',
+        },
+        {
+          challengeId: 'ch_1',
+          kind: 'community',
+          name: 'Bloop',
+          personality: 'Curious',
+          habitatNote: 'Shelf',
+          creatorUsername: 'maker',
+          appearance: {
+            bodyShape: 'blob',
+            bodyColor: 'sky',
+            bellyPattern: 'spots',
+            eyeStyle: 'big-round',
+            mouthStyle: 'wavy',
+            accessory: 'antenna',
+          },
+          ruleText: 'Eats blue circles',
+          discoveredAt: 2000,
+          experimentsUsed: 4,
+          exactDeduction: false,
+          difficulty: 'clever',
+        },
+      ]
+    );
+
+    const unlockedIds = milestones.filter((m) => m.unlocked).map((m) => m.id);
+    assert.deepEqual(unlockedIds, [
+      'first-friend',
+      'sharp-mind',
+      'daily-regular',
+      'community-sleuth',
+      'puzzle-architect',
+    ]);
   });
 });
 

@@ -13,6 +13,7 @@ import type {
 import type { GameSessionState, RevealPayload } from '../shared/engine/session.ts';
 import { CommunityChallengesView } from './components/CommunityChallengesView.tsx';
 import { CreateMonsterView } from './components/CreateMonsterView.tsx';
+import { DailyArchiveDialog } from './components/DailyArchiveDialog.tsx';
 import { DiscoverView } from './components/DiscoverView.tsx';
 import { MenagerieView } from './components/MenagerieView.tsx';
 import { ModalDialog } from './components/ModalDialog.tsx';
@@ -38,6 +39,7 @@ export function App() {
 
   const [muted, setMuted] = useState(() => soundEngine.isMuted());
   const [showHelp, setShowHelp] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
   const [initTick, setInitTick] = useState(0);
 
   const retryInit = useCallback(() => {
@@ -143,6 +145,14 @@ export function App() {
                 Today’s Daily
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setShowArchive(true)}
+              aria-label="Open Daily Monster Archive"
+              className="touch-target rounded-xl border-2 border-[#dfd0b8] bg-[#fffdf8] px-2.5 py-1 text-xs font-extrabold text-[#2b2118] hover:border-[#2b2118] cursor-pointer"
+            >
+              📅 Archive
+            </button>
             <button
               type="button"
               onClick={toggleSound}
@@ -281,6 +291,7 @@ export function App() {
             menagerie={menagerie}
             dailyHistory={dailyHistory}
             onPlayDaily={(dayKey) => void loadSpecificChallenge(`daily:${dayKey}`)}
+            onOpenArchive={() => setShowArchive(true)}
             onGoDiscover={() => {
               if (todayId && !isViewingTodayDaily) {
                 void loadSpecificChallenge(todayId);
@@ -291,6 +302,13 @@ export function App() {
           />
         )}
       </main>
+
+      <DailyArchiveDialog
+        open={showArchive}
+        activeChallengeId={activeChallenge?.id}
+        onClose={() => setShowArchive(false)}
+        onSelectDay={(dayKey) => void loadSpecificChallenge(`daily:${dayKey}`)}
+      />
 
       {/* How to Play Native <dialog> */}
       <ModalDialog open={showHelp} onClose={() => setShowHelp(false)} title="How to Play FINICKY">

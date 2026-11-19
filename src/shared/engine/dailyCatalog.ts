@@ -430,6 +430,24 @@ export function getPreviousDayKey(dayKey: string): string {
   return formatUtcDayKey(new Date(ms - 86_400_000));
 }
 
+export function getRecentDailyArchiveKeys(todayKey: string, maxDays = 14): readonly string[] {
+  const normalizedToday = isValidDayKey(todayKey) ? todayKey : formatUtcDayKey(new Date());
+  const epochMs = Date.parse(`${DAILY_EPOCH_UTC}T00:00:00Z`);
+  const todayMs = Date.parse(`${normalizedToday}T00:00:00Z`);
+  if (Number.isNaN(epochMs) || Number.isNaN(todayMs)) {
+    return [normalizedToday];
+  }
+
+  const keys: string[] = [];
+  const count = Math.max(1, Math.min(21, maxDays));
+  for (let offset = 0; offset < count; offset += 1) {
+    const candidateMs = todayMs - offset * 86_400_000;
+    if (candidateMs < epochMs) break;
+    keys.push(formatUtcDayKey(new Date(candidateMs)));
+  }
+  return keys;
+}
+
 const resolvedDailyCache = new Map<string, ResolvedDailyChallenge>();
 
 export function getDailyChallengeForDayKey(dayKey: string): ResolvedDailyChallenge {

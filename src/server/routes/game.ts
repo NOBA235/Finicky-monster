@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { context, reddit, redis } from '@devvit/web/server';
 import type {
   ApiErrorResponse,
+  DailyArchiveItem,
+  DailyArchiveResponse,
   ExamSubmitResponse,
   ExperimentResponse,
   GameInitResponse,
@@ -13,6 +15,7 @@ import type {
 import {
   formatUtcDayKey,
   getDailyChallengeForDayKey,
+  getRecentDailyArchiveKeys,
   isValidDayKey,
 } from '../../shared/engine/dailyCatalog.ts';
 import {
@@ -167,6 +170,53 @@ gameRoutes.get('/init', async (c) => {
   } catch (error) {
     console.error('GET /api/init error:', error);
     return c.json<ApiErrorResponse>({ status: 'error', message: 'Failed to initialize FINICKY.' }, 500);
+  }
+});
+
+gameRoutes.get('/daily-archive', async (c) => {
+  try {
+    const actor = await getActor();
+    const todayDayKey = formatUtcDayKey(new Date());
+    const keys = getRecentDailyArchiveKeys(todayDayKey, 14);
+
+    const items: DailyArchiveItem[] = await Promise.all(
+      keys.map(async (dayKey) => {
+        const daily = getDailyChallengeForDayKey(dayKey);
+        const session = await getOrCreateSession(redis, actor.userId, daily.id);
+        const status: DailyArchiveItem['status'] =
+          session.phase === 'revealed'
+            ? session.solved
+              ? 'solved'
+              : 'missed'
+            : session.experiments.length > 0
+              ? 'in_progress'
+              : 'unplayed';
+
+        return {
+          id: daily.id,
+          dayKey: daily.dayKey,
+          dayNumber: daily.dayNumber,
+          name: daily.name,
+          personality: daily.personality,
+          appearance: daily.appearance,
+          difficulty: daily.fairness.difficulty,
+          fairnessScore: daily.fairness.score,
+          isToday: dayKey === todayDayKey,
+          status,
+        };
+      })
+    );
+
+    return c.json<DailyArchiveResponse>({
+      todayDayKey,
+      items,
+    });
+  } catch (error) {
+    console.error('GET /api/daily-archive error:', error);
+    return c.json<ApiErrorResponse>(
+      { status: 'error', message: 'Failed to load daily archive.' },
+      500
+    );
   }
 });
 

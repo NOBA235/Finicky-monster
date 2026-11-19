@@ -292,5 +292,16 @@ void describe('Persistence, Concurrency, Streaks, & Creator Analytics', () => {
     const p1Menagerie = await getMenagerie(store, 't2_p1');
     assert.equal(p1Menagerie.length, 1);
     assert.equal(p1Menagerie[0]?.name, 'Bloop');
+    assert.ok(p1Menagerie[0]?.favoriteSnackId, 'Expected favoriteSnackId saved on resident');
+    const favSnack = p1Menagerie[0]?.favoriteSnackId
+      ? getSnackById(p1Menagerie[0].favoriteSnackId)
+      : undefined;
+    if (!favSnack) throw new Error('Expected valid favorite snack');
+    assert.equal(evaluateRule(rule, favSnack), true);
+
+    // Featured sort returns highest fairness score first
+    const featured = await listCommunityChallenges(store, 10, 'featured');
+    assert.equal(featured.length, 1);
+    assert.equal(featured[0]?.id, stored.id);
   });
 });
