@@ -503,7 +503,7 @@ export function CreateMonsterView({ onPublished }: CreateMonsterViewProps) {
               </span>
             </div>
 
-            <div className="grid grid-cols-9 gap-1.5">
+            <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
               {SNACK_UNIVERSE.map((snack) => {
                 const likes = compiledRule ? evaluateRule(compiledRule, snack) : false;
                 return (
@@ -516,7 +516,7 @@ export function CreateMonsterView({ onPublished }: CreateMonsterViewProps) {
                         : 'border-[#e3d5bf] bg-[#fffdf8] opacity-40'
                     }`}
                   >
-                    <SnackIllustration snack={snack} size={26} decorative />
+                    <SnackIllustration snack={snack} size={24} decorative />
                   </div>
                 );
               })}

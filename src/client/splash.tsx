@@ -52,8 +52,8 @@ export function Splash() {
   }, []);
 
   return (
-    <main className="min-h-[100dvh] flex flex-col items-center justify-center p-4">
-      <div className="paper-card max-w-md w-full p-5 sm:p-6 flex flex-col items-center text-center gap-3">
+    <main className="min-h-[100dvh] flex flex-col items-center justify-center p-3 sm:p-4">
+      <div className="paper-card max-w-md w-full px-4 py-4 sm:p-5 flex flex-col items-center text-center gap-2.5">
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           <span className="rounded-full border border-[#dfd0b8] bg-[#faf4e8] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-[#68584a]">
             {data.postMode === 'challenge'
@@ -67,36 +67,38 @@ export function Splash() {
 
         <h1
           className="finicky-title font-bold text-[#2b2118] leading-tight"
-          style={{ fontSize: 'clamp(1.65rem, 1.2rem + 2vw, 2.3rem)' }}
+          style={{ fontSize: 'clamp(1.5rem, 1.15rem + 1.8vw, 2.15rem)' }}
         >
           FINICKY
         </h1>
-        <p className="text-xs sm:text-sm font-bold text-[#794e8a] -mt-1.5">
+        <p className="text-xs sm:text-sm font-bold text-[#794e8a] -mt-1">
           Every monster has a secret. Can you figure out what it likes?
         </p>
 
-        <div className="relative flex items-center justify-center gap-3 my-1">
+        <div className="relative flex items-center justify-center gap-3">
           {previewSnacks[0] && (
             <div className="-rotate-12 hidden sm:block">
-              <SnackIllustration snack={previewSnacks[0]} size={42} decorative />
+              <SnackIllustration snack={previewSnacks[0]} size={40} decorative />
             </div>
           )}
           <MonsterIllustration
             appearance={data.appearance}
             mood={data.alreadySolved ? 'celebrate' : 'curious'}
-            size={148}
+            size={132}
             name={data.monsterName}
           />
           {previewSnacks[1] && (
             <div className="rotate-12 hidden sm:block">
-              <SnackIllustration snack={previewSnacks[1]} size={42} decorative />
+              <SnackIllustration snack={previewSnacks[1]} size={40} decorative />
             </div>
           )}
         </div>
 
         <div>
-          <p className="finicky-title text-xl font-bold text-[#2b2118]">Meet {data.monsterName}</p>
-          <p className="text-xs sm:text-sm text-[#68584a] max-w-xs mx-auto mt-0.5">
+          <p className="finicky-title text-lg sm:text-xl font-bold text-[#2b2118]">
+            Meet {data.monsterName}
+          </p>
+          <p className="text-xs sm:text-sm text-[#68584a] max-w-xs mx-auto mt-0.5 line-clamp-2">
             {data.personality}
           </p>
         </div>
@@ -104,7 +106,7 @@ export function Splash() {
         <button
           type="button"
           onClick={(e) => requestExpandedMode(e.nativeEvent, 'game')}
-          className="tactile-btn bg-[#df5a49] text-white px-7 py-3 text-base w-full sm:w-auto cursor-pointer mt-1"
+          className="tactile-btn bg-[#df5a49] text-white px-7 py-2.5 text-sm sm:text-base w-full sm:w-auto cursor-pointer mt-0.5"
         >
           {data.alreadySolved ? 'Open Menagerie & Results →' : 'Investigate Monster →'}
         </button>

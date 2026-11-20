@@ -176,13 +176,14 @@ export function App() {
         <nav aria-label="Primary" className="max-w-5xl mx-auto px-3 sm:px-5 pb-2.5">
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { key: 'discover' as const, label: 'Discover', icon: '🔍' },
-              { key: 'challenges' as const, label: 'Community', icon: '🧩' },
-              { key: 'create' as const, label: 'Create', icon: '🎨' },
+              { key: 'discover' as const, label: 'Discover', icon: '🔍', count: null },
+              { key: 'challenges' as const, label: 'Community', icon: '🧩', count: null },
+              { key: 'create' as const, label: 'Create', icon: '🎨', count: null },
               {
                 key: 'menagerie' as const,
-                label: `Menagerie (${menagerie.length})`,
+                label: 'Menagerie',
                 icon: '🌿',
+                count: menagerie.length,
               },
             ].map((tab) => {
               const active = activeTab === tab.key;
@@ -195,16 +196,27 @@ export function App() {
                     soundEngine.playTap();
                     setActiveTab(tab.key);
                   }}
-                  className={`touch-target rounded-xl border-2 px-2 py-1.5 text-xs sm:text-sm font-extrabold transition-all cursor-pointer truncate ${
+                  className={`touch-target rounded-xl border-2 px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-sm font-extrabold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 leading-tight ${
                     active
                       ? 'border-[#2b2118] bg-[#2b2118] text-[#fffdf8] shadow-[0_2px_0_#68584a]'
                       : 'border-[#dfd0b8] bg-[#fffdf8] text-[#2b2118] hover:border-[#2b2118]'
                   }`}
                 >
-                  <span aria-hidden="true" className="mr-1">
+                  <span aria-hidden="true" className="text-sm sm:text-base leading-none">
                     {tab.icon}
                   </span>
-                  <span>{tab.label}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <span>{tab.label}</span>
+                    {tab.count !== null && (
+                      <span
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+                          active ? 'bg-[#f0bc3a] text-[#2b2118]' : 'bg-[#f2e8d5] text-[#68584a]'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })}

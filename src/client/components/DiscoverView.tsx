@@ -153,6 +153,33 @@ export function DiscoverView({
     [session.experiments]
   );
 
+  const summarizeTraits = (items: readonly { readonly snackId: SnackId }[]): string | null => {
+    if (items.length < 2) return null;
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const snack = getSnackById(item.snackId);
+      if (!snack) continue;
+      for (const trait of [snack.color, snack.pattern, snack.shape]) {
+        counts.set(trait, (counts.get(trait) ?? 0) + 1);
+      }
+    }
+    const top = Array.from(counts.entries())
+      .filter(([, n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([trait, n]) => `${trait.charAt(0).toUpperCase() + trait.slice(1)} ×${n}`);
+    return top.length > 0 ? top.join(' · ') : null;
+  };
+
+  const acceptedTraitSummary = useMemo(
+    () => summarizeTraits(acceptedHistory),
+    [acceptedHistory]
+  );
+  const rejectedTraitSummary = useMemo(
+    () => summarizeTraits(rejectedHistory),
+    [rejectedHistory]
+  );
+
   // Live local consistency check for Hypothesis Builder
   const compiledHypothesis = useMemo(
     () => compileVisualRuleDraft(hypothesisDraft),
@@ -384,10 +411,10 @@ export function DiscoverView({
         className="grid grid-cols-4 gap-1.5 text-center text-[11px] font-extrabold"
       >
         {[
-          { step: 1, label: '1. Experiment' },
-          { step: 2, label: '2. Theory' },
-          { step: 3, label: '3. Unseen Exam' },
-          { step: 4, label: '4. Reveal' },
+          { step: 1, short: '1. Test', full: '1. Experiment' },
+          { step: 2, short: '2. Theory', full: '2. Theory' },
+          { step: 3, short: '3. Exam', full: '3. Unseen Exam' },
+          { step: 4, short: '4. Reveal', full: '4. Reveal' },
         ].map((item) => {
           const isCurrent = phaseStep === item.step;
           const isDone = phaseStep > item.step;
@@ -395,7 +422,7 @@ export function DiscoverView({
             <li
               key={item.step}
               aria-current={isCurrent ? 'step' : undefined}
-              className={`rounded-xl border-2 px-2 py-1.5 transition-colors ${
+              className={`rounded-xl border-2 px-1.5 sm:px-2 py-1.5 transition-colors ${
                 isCurrent
                   ? 'border-[#2b2118] bg-[#f0bc3a] text-[#2b2118]'
                   : isDone
@@ -403,7 +430,8 @@ export function DiscoverView({
                     : 'border-[#dfd0b8] bg-[#fffdf8] text-[#68584a]'
               }`}
             >
-              {item.label}
+              <span className="sm:hidden">{item.short}</span>
+              <span className="hidden sm:inline">{item.full}</span>
             </li>
           );
         })}
@@ -506,13 +534,29 @@ export function DiscoverView({
           </div>
         </div>
 
+        {/* First-time detective tip before any test is run */}
+        {session.experiments.length === 0 && session.phase === 'experiment' && (
+          <p className="mt-3 rounded-xl border border-[#e7cb7a] bg-[#fdf4db] px-3.5 py-2 text-xs font-bold text-[#7c5308]">
+            💡 Detective tip: Every snack has 3 traits — <strong>Shape</strong>,{' '}
+            <strong>Color</strong>, and <strong>Pattern</strong>. Feed snacks below to discover the
+            hidden rule!
+          </p>
+        )}
+
         {/* Evidence Notebook — always visible once >= 1 test is run */}
         {session.experiments.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4">
             <div className="rounded-2xl border-2 border-[#9fd1ab] bg-[#e6f4e9] p-3">
-              <p className="text-xs font-extrabold uppercase tracking-wide text-[#1f592d] mb-2">
-                ✓ Liked Snacks ({acceptedHistory.length})
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
+                <p className="text-xs font-extrabold uppercase tracking-wide text-[#1f592d]">
+                  ✓ Liked Snacks ({acceptedHistory.length})
+                </p>
+                {acceptedTraitSummary && (
+                  <span className="text-[10px] font-extrabold text-[#1f592d] bg-[#fffdf8]/80 rounded-full px-2 py-0.5 border border-[#9fd1ab]">
+                    {acceptedTraitSummary}
+                  </span>
+                )}
+              </div>
               {acceptedHistory.length === 0 ? (
                 <p className="text-xs text-[#3f6b49] italic">None accepted yet — keep testing!</p>
               ) : (
@@ -535,9 +579,16 @@ export function DiscoverView({
             </div>
 
             <div className="rounded-2xl border-2 border-[#e9a89f] bg-[#fdebe8] p-3">
-              <p className="text-xs font-extrabold uppercase tracking-wide text-[#9e2b1e] mb-2">
-                ✕ Refused Snacks ({rejectedHistory.length})
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
+                <p className="text-xs font-extrabold uppercase tracking-wide text-[#9e2b1e]">
+                  ✕ Refused Snacks ({rejectedHistory.length})
+                </p>
+                {rejectedTraitSummary && (
+                  <span className="text-[10px] font-extrabold text-[#9e2b1e] bg-[#fffdf8]/80 rounded-full px-2 py-0.5 border border-[#e9a89f]">
+                    {rejectedTraitSummary}
+                  </span>
+                )}
+              </div>
               {rejectedHistory.length === 0 ? (
                 <p className="text-xs text-[#9e4c43] italic">None refused yet — test a contrast!</p>
               ) : (

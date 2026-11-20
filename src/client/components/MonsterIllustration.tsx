@@ -455,16 +455,32 @@ export function MonsterIllustration({
     }
     if (mood === 'confused' || mood === 'curious') {
       return (
-        <text
-          x="146"
-          y="46"
-          fill={ink}
-          fontSize="26"
-          fontWeight="800"
-          fontFamily="Georgia, serif"
-        >
-          ?
-        </text>
+        <g>
+          {mood === 'confused' && (
+            <g stroke={ink} strokeWidth="3.2" strokeLinecap="round" fill="none">
+              <path d="M58 66 Q69 60 80 65" />
+              <path d="M100 62 Q111 68 122 63" />
+            </g>
+          )}
+          <text
+            x="146"
+            y="46"
+            fill={ink}
+            fontSize="26"
+            fontWeight="800"
+            fontFamily="Georgia, serif"
+          >
+            ?
+          </text>
+        </g>
+      );
+    }
+    if (mood === 'suspicious') {
+      return (
+        <g stroke={ink} strokeWidth="3.2" strokeLinecap="round" fill="none">
+          <path d="M57 65 L82 69" />
+          <path d="M123 65 L98 69" />
+        </g>
       );
     }
     return null;
